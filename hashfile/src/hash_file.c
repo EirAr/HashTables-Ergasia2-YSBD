@@ -14,7 +14,7 @@
     return HP_ERROR;        \
   }                         \
 }
-
+///
 HT_ErrorCode HT_Init() {
   //insert code here
   return HT_OK;
