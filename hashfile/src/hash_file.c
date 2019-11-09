@@ -113,7 +113,11 @@ HT_ErrorCode HT_OpenIndex(const char *fileName, int *indexDesc){
 }
 
 HT_ErrorCode HT_CloseFile(int indexDesc) {
-  //insert code here
+  if(open_files_array[indexDesc] == -1){
+    return HT_ERROR;
+  }
+  CALL_BF(BF_CloseFile(open_files_array[indexDesc]));
+  open_files_array[indexDesc] = -1;
   return HT_OK;
 }
 
