@@ -15,6 +15,9 @@
   }                         \
 }
 
+int open_files_array[MAX_OPEN_FILES];
+
+
 HT_ErrorCode HT_Init() {
   return HT_OK;
 }
@@ -30,7 +33,7 @@ HT_ErrorCode HT_CreateIndex(const char *filename, int buckets) {
   first_block_data = BF_Block_GetData(first_block);
   for(index = 0; index < BF_BLOCK_SIZE; index++){
     first_block_data[index] = '%';
-  } //Is a HeapFile only if its first block is filled with '%'
+  } //Is a HashFile only if its first block is filled with '%'
   BF_Block_SetDirty(first_block); //File was changed
   CALL_BF(BF_UnpinBlock(first_block));
   BF_Block_Destroy(&first_block); //Free mem
@@ -77,8 +80,33 @@ HT_ErrorCode HT_CreateIndex(const char *filename, int buckets) {
 }
 
 HT_ErrorCode HT_OpenIndex(const char *fileName, int *indexDesc){
-  //insert code here
-  return HT_OK;
+  char* block_data;
+  BF_Block *block;
+  BF_Block_Init(&block);
+  int file_desc;
+
+  CALL_BF(BF_OpenFile(fileName, &file_desc));
+  CALL_BF(BF_GetBlock(file_desc, 0, block));
+  block_data = BF_Block_GetData(block);
+  for(int i = 0; i < BF_BLOCK_SIZE; i++){
+    if(block_data[i] != '%'){ //Check if it is a HashFile
+      CALL_BF(BF_UnpinBlock(block));
+      BF_Block_Destroy(&block);
+      return HT_ERROR;
+    }
+  }
+  for (int i = 0; i < MAX_OPEN_FILES; i++) {
+    if(open_files_array[i] == -1) {
+      open_files_array[i] = file_desc;
+      *indexDesc = i;
+      CALL_BF(BF_UnpinBlock(block));
+      BF_Block_Destroy(&block);
+      return HT_OK;
+    }
+  }
+  CALL_BF(BF_UnpinBlock(block));
+  BF_Block_Destroy(&block);
+  return HT_ERROR;
 }
 
 HT_ErrorCode HT_CloseFile(int indexDesc) {
