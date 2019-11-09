@@ -19,6 +19,9 @@ int open_files_array[MAX_OPEN_FILES];
 
 
 HT_ErrorCode HT_Init() {
+  for(int i = 0; i < MAX_OPEN_FILES; i++){
+    open_files_array[i] = -1;
+  }
   return HT_OK;
 }
 
