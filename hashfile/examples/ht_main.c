@@ -83,7 +83,11 @@ int main() {
     r = rand() % 10;
     memcpy(record.city, cities[r], strlen(cities[r]) + 1);
 
+    printf("1\n");
+    fflush(stdout);
     CALL_OR_DIE(HT_InsertEntry(indexDesc, record));
+    printf("2\n");
+    fflush(stdout);
   }
 
   printf("RUN PrintAllEntries\n");
