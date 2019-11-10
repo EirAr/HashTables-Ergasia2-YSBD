@@ -190,6 +190,7 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
       CALL_BF(BF_GetBlockCounter(file_desc, &blocks_num));
       block_of_records_data[1] = blocks_num; // Change the next block from -1 to the next available block in file
 
+      BF_Block_SetDirty(block_of_records);
       CALL_BF(BF_UnpinBlock(block_of_records));
       CALL_BF(BF_AllocateBlock(file_desc, block_of_records));
       block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
