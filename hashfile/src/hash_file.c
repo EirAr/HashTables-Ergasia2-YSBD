@@ -249,8 +249,8 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
   int records_num;
   if(id == NULL){
     for(int i = num_hash_blocks + 2; i < blocks_num; i++){
-      CALL_BF(BF_GetBlock(fileDesc, i, block_of_records));
-      block_of_records_data = BF_Block_GetData(block_of_records);
+      CALL_BF(BF_GetBlock(file_desc, i, block_of_records));
+      int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
 
       memcpy(&records_num, block_of_records_data, sizeof(int));
       record = (Record*)(block_of_records_data + 2 * sizeof(int));
@@ -260,6 +260,7 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
       CALL_BF(BF_UnpinBlock(block_of_records));
     }
   }
+
 
 
   BF_Block_Destroy(&block_of_records);
