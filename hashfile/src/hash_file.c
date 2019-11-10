@@ -242,7 +242,6 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
   int blocks_num;
   CALL_BF(BF_GetBlockCounter(file_desc, &blocks_num));
 
-
   BF_Block *block_of_records;
   BF_Block_Init(&block_of_records);
   Record *record;
@@ -251,17 +250,14 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
     for(int i = num_hash_blocks + 2; i < blocks_num; i++){
       CALL_BF(BF_GetBlock(file_desc, i, block_of_records));
       int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
-
-      memcpy(&records_num, block_of_records_data, sizeof(int));
-      record = (Record*)(block_of_records_data + 2 * sizeof(int));
+      records_num = block_of_records_data[0];
+      record = (Record*)(block_of_records_data + 2);
       for(int j = 0; j < records_num; j++){
         printf("Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
       }
       CALL_BF(BF_UnpinBlock(block_of_records));
     }
   }
-
-
 
   BF_Block_Destroy(&block_of_records);
   return HT_OK;
