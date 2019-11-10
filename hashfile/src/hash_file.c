@@ -225,7 +225,44 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
 }
 
 HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
-  //insert code here
+  
+  // Get the file descriptor
+  int file_desc = open_files_array[indexDesc]; 
+  
+  // Get the number of hashing blocks, to know where to start the printing
+  BF_Block *hash_info_block;
+  BF_Block_Init(&hash_info_block);
+  CALL_BF(BF_GetBlock(file_desc, 1, hash_info_block));
+  int* hash_info_block_data = (int*)(BF_Block_GetData(hash_info_block));
+  int num_hash_blocks = hash_info_block_data[1];
+  CALL_BF(BF_UnpinBlock(hash_info_block));
+  BF_Block_Destroy(&hash_info_block);
+
+  // Get the number of blocks to know where to stop the printing
+  int blocks_num;
+  CALL_BF(BF_GetBlockCounter(file_desc, &blocks_num));
+
+
+  BF_Block *block_of_records;
+  BF_Block_Init(&block_of_records);
+  Record *record;
+  int records_num;
+  if(id == NULL){
+    for(int i = num_hash_blocks + 2; i < blocks_num; i++){
+      CALL_BF(BF_GetBlock(fileDesc, i, block_of_records));
+      block_of_records_data = BF_Block_GetData(block_of_records);
+
+      memcpy(&records_num, block_of_records_data, sizeof(int));
+      record = (Record*)(block_of_records_data + 2 * sizeof(int));
+      for(int j = 0; j < records_num; j++){
+        printf("Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
+      }
+      CALL_BF(BF_UnpinBlock(block_of_records));
+    }
+  }
+
+
+  BF_Block_Destroy(&block_of_records);
   return HT_OK;
 }
 
