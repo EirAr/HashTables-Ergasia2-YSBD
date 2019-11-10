@@ -174,12 +174,12 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     int block_num = block_of_records_data[1];
 
     while (block_num != -1) {
-      block_num = block_of_records_data[1];
-
       CALL_BF(BF_UnpinBlock(block_of_records));
 
       CALL_BF(BF_GetBlock(file_desc, block_num, block_of_records));
       block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+
+      block_num = block_of_records_data[1];
     }
 
     int max_records_in_block = (BF_BLOCK_SIZE - (2 * sizeof(int)))/sizeof(Record);
