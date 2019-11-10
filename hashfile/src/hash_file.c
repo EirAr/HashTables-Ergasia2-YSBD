@@ -171,7 +171,7 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     CALL_BF(BF_GetBlock(file_desc, hash_block_data[hash_bucket_num], block_of_records));
     int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
 
-    int block_num = block_of_records_data[1];;
+    int block_num = block_of_records_data[1];
 
     while (block_num != -1) {
       block_num = block_of_records_data[1];
@@ -185,7 +185,24 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     int max_records_in_block = (BF_BLOCK_SIZE - (2 * sizeof(int)))/sizeof(Record);
     int records_num = block_of_records_data[0];
     if (records_num == max_records_in_block) {
-      printf("geia\n");
+
+      int blocks_num;
+      CALL_BF(BF_GetBlockCounter(file_desc, &blocks_num));
+      block_of_records_data[1] = blocks_num; // Change the next block from -1 to the next available block in file
+
+      CALL_BF(BF_UnpinBlock(block_of_records));
+      CALL_BF(BF_AllocateBlock(file_desc, block_of_records));
+      block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+      block_of_records_data[0] = 1;
+      block_of_records_data[1] = -1;
+      block_of_records_data = block_of_records_data + 2; // Point to the first record in block
+      memcpy(block_of_records_data, &record, sizeof(Record));
+
+      
+
+      BF_Block_SetDirty(block_of_records);
+      CALL_BF(BF_UnpinBlock(block_of_records));
+      BF_Block_Destroy(&block_of_records);
     } else {
       (block_of_records_data[0])++;
       block_of_records_data = block_of_records_data + 2; // Point to the first record in block
@@ -198,9 +215,6 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     }
 
   }
-
-
-  
 
   CALL_BF(BF_UnpinBlock(hash_block));
   BF_Block_Destroy(&hash_block);
