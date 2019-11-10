@@ -185,7 +185,7 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     int max_records_in_block = (BF_BLOCK_SIZE - (2 * sizeof(int)))/sizeof(Record);
     int records_num = block_of_records_data[0];
     if (records_num == max_records_in_block) {
-      continue;
+      printf("geia\n");
     } else {
       (block_of_records_data[0])++;
       block_of_records_data = block_of_records_data + 2; // Point to the first record in block
