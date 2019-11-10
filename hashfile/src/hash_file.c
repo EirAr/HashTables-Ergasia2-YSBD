@@ -58,8 +58,6 @@ HT_ErrorCode HT_CreateIndex(const char *filename, int buckets) {
   BF_Block_Destroy(&hash_info_block); //Free mem
 
 
-
-
   BF_Block *hash_block;
   int* hash_block_data;
 
@@ -113,7 +111,7 @@ HT_ErrorCode HT_OpenIndex(const char *fileName, int *indexDesc){
 }
 
 HT_ErrorCode HT_CloseFile(int indexDesc) {
-  if(open_files_array[indexDesc] == -1){
+  if(indexDesc >= MAX_OPEN_FILES || indexDesc < 0 || open_files_array[indexDesc] == -1){
     return HT_ERROR;
   }
   CALL_BF(BF_CloseFile(open_files_array[indexDesc]));
@@ -122,7 +120,95 @@ HT_ErrorCode HT_CloseFile(int indexDesc) {
 }
 
 HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
-  //insert code here
+  if(indexDesc >= MAX_OPEN_FILES || indexDesc < 0 || open_files_array[indexDesc] == -1){
+    return HT_ERROR;
+  }
+  int file_desc = open_files_array[indexDesc];//file descriptor
+
+  BF_Block *hash_info_block;
+  BF_Block_Init(&hash_info_block);
+  CALL_BF(BF_GetBlock(file_desc, 1, hash_info_block));
+  int* hash_info_block_data = (int*)(BF_Block_GetData(hash_info_block));
+  int buckets = hash_info_block_data[0];
+
+  int hash_value = record.id % buckets;
+  int hash_block_num = (hash_value / 128) + 2;
+  int hash_bucket_num = hash_value % 128;
+
+  BF_Block *hash_block;
+  BF_Block_Init(&hash_block);
+  CALL_BF(BF_GetBlock(file_desc, hash_block_num, hash_block));
+  int* hash_block_data = (int*)(BF_Block_GetData(hash_block));
+
+  int records_num;
+
+  BF_Block *block_of_records;
+  BF_Block_Init(&block_of_records);
+  if ( hash_block_data[hash_bucket_num] == -1 ) {
+
+    CALL_BF(BF_AllocateBlock(fileDesc, block_of_records));
+    int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+    records_num = 1;
+    memcpy(block_of_records_data, &records_num, sizeof(int));
+    block_of_records_data = block_of_records_data + 1;
+    int next_block = -1;
+    memcpy(block_of_records_data, &next_block, sizeof(int)); /*setting the last 4bytes to -1, to indicate that there is no next block*/
+    block_of_records_data = block_of_records_data + 1;
+    block_of_records_data = (Record*)(block_of_records_data);
+    memcpy(block_of_records_data, &record, sizeof(Record));
+    
+    int blocks_num;
+    CALL_BF(BF_GetBlockCounter(file_desc, &blocks_num));
+    hash_block_data[hash_bucket_num] = blocks_num - 1;
+
+    BF_Block_SetDirty(block_of_records);
+    CALL_BF(BF_UnpinBlock(block_of_records));
+    BF_Block_Destroy(&block_of_records);
+
+    BF_Block_SetDirty(hash_block);
+  } else {
+
+
+    CALL_BF(BF_GetBlock(file_desc, hash_block_data[hash_bucket_num], block_of_records));
+    int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+
+    int block_num = block_of_records_data[1];;
+
+    while (block_num != -1) {
+      block_num = block_of_records_data[1];
+
+      CALL_BF(BF_UnpinBlock(block_of_records));
+
+      CALL_BF(BF_GetBlock(file_desc, block_num, block_of_records));
+      block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+    }
+
+    int max_records_in_block = (BF_BLOCK_SIZE - (2 * sizeof(int)))/sizeof(Record);
+    int records_num = block_of_records_data[0];
+    if (records_num == max_records_in_block) {
+      continue;
+    } else {
+      (block_of_records_data[0])++;
+      block_of_records_data = block_of_records_data + 2; // Point to the first record in block
+      block_of_records_data = (Record*)(block_of_records_data); 
+      block_of_records_data = block_of_records_data + records_num; // Point after the last record of the block
+      memcpy(block_of_records_data, &record, sizeof(Record));
+
+      BF_Block_SetDirty(block_of_records);
+      CALL_BF(BF_UnpinBlock(block_of_records));
+      BF_Block_Destroy(&block_of_records);
+    }
+
+  }
+
+
+  
+
+  CALL_BF(BF_UnpinBlock(hash_block));
+  BF_Block_Destroy(&hash_block);
+
+  CALL_BF(BF_UnpinBlock(hash_info_block));
+  BF_Block_Destroy(&hash_info_block);
   return HT_OK;
 }
 
@@ -135,3 +221,9 @@ HT_ErrorCode HT_DeleteEntry(int indexDesc, int id) {
   //insert code here
   return HT_OK;
 }
+
+
+
+
+
+
