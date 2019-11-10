@@ -146,7 +146,7 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
   BF_Block_Init(&block_of_records);
   if ( hash_block_data[hash_bucket_num] == -1 ) {
 
-    CALL_BF(BF_AllocateBlock(fileDesc, block_of_records));
+    CALL_BF(BF_AllocateBlock(file_desc, block_of_records));
     int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
     records_num = 1;
     memcpy(block_of_records_data, &records_num, sizeof(int));
@@ -154,7 +154,6 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     int next_block = -1;
     memcpy(block_of_records_data, &next_block, sizeof(int)); /*setting the last 4bytes to -1, to indicate that there is no next block*/
     block_of_records_data = block_of_records_data + 1;
-    block_of_records_data = (Record*)(block_of_records_data);
     memcpy(block_of_records_data, &record, sizeof(Record));
     
     int blocks_num;
@@ -190,8 +189,7 @@ HT_ErrorCode HT_InsertEntry(int indexDesc, Record record) {
     } else {
       (block_of_records_data[0])++;
       block_of_records_data = block_of_records_data + 2; // Point to the first record in block
-      block_of_records_data = (Record*)(block_of_records_data); 
-      block_of_records_data = block_of_records_data + records_num; // Point after the last record of the block
+      block_of_records_data = (int *)((Record*)(block_of_records_data) + records_num);  // Point after the last record of the block
       memcpy(block_of_records_data, &record, sizeof(Record));
 
       BF_Block_SetDirty(block_of_records);
