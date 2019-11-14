@@ -238,6 +238,7 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
 	CALL_BF(BF_GetBlock(file_desc, 1, hash_info_block));
 	int* hash_info_block_data = (int*)(BF_Block_GetData(hash_info_block));
 	int num_hash_blocks = hash_info_block_data[1];
+	int buckets=hash_info_block_data[0];
 	CALL_BF(BF_UnpinBlock(hash_info_block));
 	BF_Block_Destroy(&hash_info_block);
 
@@ -263,21 +264,33 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
 		}
 	}
 	else{
-		for (int i = num_hash_blocks + 2; i < blocks_num; i++) {
-			CALL_BF(BF_GetBlock(file_desc, i, block_of_records));
+
+			int hash_value = *id % buckets;
+			int hash_block_num = (hash_value / 128) + 2;
+			int hash_bucket_num = hash_value % 128;		
+			BF_Block *hash_block;
+			BF_Block_Init(&hash_block);
+			CALL_BF(BF_GetBlock(file_desc, hash_block_num, hash_block));
+			int* hash_block_data = (int*)(BF_Block_GetData(hash_block));
+			CALL_BF(BF_UnpinBlock(hash_block));
+			BF_Block_Destroy(&hash_block);
+			while(hash_block_data[hash_bucket_num]!=-1)
+			{
+			CALL_BF(BF_GetBlock(file_desc, hash_block_data[hash_bucket_num], block_of_records));
 			int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
 			records_num = block_of_records_data[0];
-			record = (Record*)(block_of_records_data + 2);
+			record = (Record*)(block_of_records_data+2);
 			for (int j = 0; j < records_num; j++) {
 				if (record[j].id == *id)
 				{
 					printf("Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
 					flag=1;
 				}
+				printf("NOTCORRECT Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
 			}
-			
 			CALL_BF(BF_UnpinBlock(block_of_records));
-		}
+			hash_bucket_num+=1;
+			}
 		if(flag==0)
 			{
 				printf("No such Record\n");	
