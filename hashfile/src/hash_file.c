@@ -261,12 +261,14 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
 				printf("Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
 			}
 			CALL_BF(BF_UnpinBlock(block_of_records));
+
 		}
 	}
 	else{
 
 			int hash_value = *id % buckets;
 			int hash_block_num = (hash_value / 128) + 2;
+
 			int hash_bucket_num = hash_value % 128;		
 			BF_Block *hash_block;
 			BF_Block_Init(&hash_block);
@@ -274,9 +276,10 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
 			int* hash_block_data = (int*)(BF_Block_GetData(hash_block));
 			CALL_BF(BF_UnpinBlock(hash_block));
 			BF_Block_Destroy(&hash_block);
-			while(hash_block_data[hash_bucket_num]!=-1)
+			int bucketnum=hash_block_data[hash_bucket_num];
+			while(bucketnum!=-1)
 			{
-			CALL_BF(BF_GetBlock(file_desc, hash_block_data[hash_bucket_num], block_of_records));
+			CALL_BF(BF_GetBlock(file_desc, bucketnum, block_of_records));
 			int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
 			records_num = block_of_records_data[0];
 			record = (Record*)(block_of_records_data+2);
@@ -285,11 +288,13 @@ HT_ErrorCode HT_PrintAllEntries(int indexDesc, int *id) {
 				{
 					printf("Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
 					flag=1;
+					CALL_BF(BF_UnpinBlock(block_of_records));
+					return HT_OK;
+;
 				}
-				printf("NOTCORRECT Id: %d Name: %s Surname: %s City: %s\n", record[j].id, record[j].name, record[j].surname, record[j].city);
 			}
+			bucketnum=block_of_records_data[1];
 			CALL_BF(BF_UnpinBlock(block_of_records));
-			hash_bucket_num+=1;
 			}
 		if(flag==0)
 			{
@@ -311,6 +316,7 @@ HT_ErrorCode HT_DeleteEntry(int indexDesc, int id) {
 	CALL_BF(BF_GetBlock(file_desc, 1, hash_info_block));
 	int* hash_info_block_data = (int*)(BF_Block_GetData(hash_info_block));
 	int num_hash_blocks = hash_info_block_data[1];
+	int buckets=hash_info_block_data[0];
 	CALL_BF(BF_UnpinBlock(hash_info_block));
 	BF_Block_Destroy(&hash_info_block);
 
@@ -323,29 +329,59 @@ HT_ErrorCode HT_DeleteEntry(int indexDesc, int id) {
 	Record *record;
 	int records_num;
 
-	for (int i = num_hash_blocks + 2; i < blocks_num; i++)
-	{
-		CALL_BF(BF_GetBlock(file_desc, i, block_of_records));
-		int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
-		records_num = block_of_records_data[0];
-		record = (Record*)(block_of_records_data + 2);
-		int j = 0;
-		while (j < records_num)
+	int hash_value = id % buckets;
+	int hash_block_num = (hash_value / 128) + 2;
+
+	int hash_bucket_num = hash_value % 128;		
+	BF_Block *hash_block;
+	BF_Block_Init(&hash_block);
+	CALL_BF(BF_GetBlock(file_desc, hash_block_num, hash_block));
+	int* hash_block_data = (int*)(BF_Block_GetData(hash_block));
+	CALL_BF(BF_UnpinBlock(hash_block));
+	BF_Block_Destroy(&hash_block);
+	int bucketnum=hash_block_data[hash_bucket_num];
+	int prevblock=bucketnum;
+	while(bucketnum!=-1)
 		{
-			if (record[j].id == id)
-			{
-				block_of_records_data[0] -= 1;
-				while (j < records_num - 1)
+			CALL_BF(BF_GetBlock(file_desc, bucketnum, block_of_records));
+			int* block_of_records_data = (int*)(BF_Block_GetData(block_of_records));
+			records_num = block_of_records_data[0];
+			record = (Record*)(block_of_records_data+2);
+			for (int j = 0; j < records_num; j++) {
+				if (record[j].id == id)
 				{
-					memcpy(&record[j],&record[j + 1],sizeof(Record));
-					j++;
+					if(records_num==1)
+					{
+						int temp=1;
+						memcpy(&prevblock,&temp,sizeof(int));
+						BF_Block_SetDirty(block_of_records);
+						break;
+
+					}
+					else if(j==records_num)
+					{
+						int newnum=records_num-1;
+						memcpy(&(block_of_records_data[0]),&newnum,sizeof(int));
+						BF_Block_SetDirty(block_of_records);
+						break;
+	
+					}
+					else
+					{
+						int newnum=records_num-1;
+						memcpy(&(record[j]),&(record[records_num]),sizeof(Record));
+						memcpy(&(block_of_records_data[0]),&newnum,sizeof(int));
+						BF_Block_SetDirty(block_of_records);
+						break;	
+					}
+					CALL_BF(BF_UnpinBlock(block_of_records));
 				}
-				break;
 			}
-			j++;
-		}
-		CALL_BF(BF_UnpinBlock(block_of_records));
-	}
+			prevblock=bucketnum;
+			bucketnum=block_of_records_data[1];
+			CALL_BF(BF_UnpinBlock(block_of_records));
+			}
+
 	BF_Block_Destroy(&block_of_records);
 
 	return HT_OK;
